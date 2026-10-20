@@ -1,0 +1,22 @@
+{
+    "name": "cutoptim/engine",
+    "description": "Official client for the CutOptim Engine API — cutting optimization (2D panels, 1D linear, timber, true-shape nesting) over HTTPS.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["cutoptim", "cutting optimization", "cut list", "nesting", "panel saw", "api client"],
+    "homepage": "https://cutoptim.com/engine/reference",
+    "support": {
+        "issues": "https://github.com/cutoptim/engine-php/issues",
+        "source": "https://github.com/cutoptim/engine-php",
+        "docs": "https://cutoptim.com/engine/reference"
+    },
+    "authors": [{ "name": "CutOptim", "email": "support@cutoptim.com" }],
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": { "CutOptim\\Engine\\": "src/" }
+    }
+}

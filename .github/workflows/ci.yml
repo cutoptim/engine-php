@@ -1,0 +1,42 @@
+# CI for the mirror repo cutoptim/engine-php (published from the CutOptim monorepo, sdks/php).
+# Packagist reads the tags of this repo directly — a version tag is the release; there is nothing to upload.
+name: ci
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json
+          tools: composer
+      - run: composer validate --strict
+      - run: for f in src/*.php; do php -l "$f"; done
+      - name: The tag must equal Operations::VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          V=$(php -r 'require "src/Operations.gen.php"; echo CutOptim\Engine\Operations::VERSION;')
+          test "v$V" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != Operations::VERSION $V"; exit 1; }
+      - name: Autoload + webhook signature vector
+        run: |
+          composer dump-autoload
+          php -r '
+            require "vendor/autoload.php";
+            $v = json_decode(file_get_contents("tests/webhook-vector.json"), true);
+            $good = CutOptim\Engine\Webhook::verify($v["body"], $v["header"], $v["secret"], 300, $v["t"]);
+            $bad = CutOptim\Engine\Webhook::verify($v["body"] . " ", $v["header"], $v["secret"], 300, $v["t"]);
+            if (!$good || $bad) { fwrite(STDERR, "vector failed\n"); exit(1); }
+            new CutOptim\Engine\Client("co_test_x");
+            echo "webhook vector ok, client loads\n";
+          '
