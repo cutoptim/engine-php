@@ -47,7 +47,21 @@ final class Client
             throw new \BadMethodCallException("CutOptim\\Engine\\Client has no operation {$name}()");
         }
         $body = $op['method'] === 'GET' ? null : ($args[0] ?? []);
-        return $this->call($op['method'], $op['path'], $body, $op['idempotent'] ? ($args[1] ?? null) : null, $op['idempotent']);
+        // 2D / 1D / wood: ask for "async": "auto" (unless the request sets it) and, when the job was handed off
+        // (202, status "running"), wait for it and return its plan — the value a 200 carries. engine "max" still
+        // returns its 202 job; a failed hand-off throws code "job_failed".
+        if (in_array($op['path'], ['/v1/optimize/2d', '/v1/optimize/1d', '/v1/optimize/wood'], true) && is_array($body) && !array_key_exists('async', $body)) {
+            $body['async'] = 'auto';
+        }
+        $r = $this->call($op['method'], $op['path'], $body, $op['idempotent'] ? ($args[1] ?? null) : null, $op['idempotent']);
+        if (isset($r['jobId'], $r['status']) && is_string($r['jobId']) && $r['status'] === 'running') {
+            $job = $this->waitForJob($r['jobId']);
+            if (($job['status'] ?? null) === 'succeeded') {
+                return $job['result'] ?? [];
+            }
+            throw new CutOptimException(0, 'job_failed', $job['error'] ?? "job {$r['jobId']} failed", ['jobId' => $r['jobId']]);
+        }
+        return $r;
     }
 
     public function getJob(string $jobId): array
